@@ -1,4 +1,7 @@
 #!/usr/bin/python3
+#part of chrimera project. 
+#proof of concept code of yetanoptherprojecttosavetheworld.org
+#written by bram diederik
 import os
 import discord
 from discord.ext import commands
