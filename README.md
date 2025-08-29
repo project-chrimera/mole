@@ -17,3 +17,7 @@ It can also trigger external system hooks (e.g. PHP scripts) when roles change.
 
 ---
 
+## LDAP setup.
+create LDAP. with a ou=users and ou=groups in the base structure.
+
+ldapadd -Y EXTERNAL -H ldapi:/// -f chrimera.ldif

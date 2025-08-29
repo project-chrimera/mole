@@ -1,0 +1,49 @@
+dn: cn=chrimera,cn=schema,cn=config
+objectClass: olcSchemaConfig
+cn: chrimera
+olcAttributeTypes: ( 1.3.6.1.4.1.99999.1.1
+  NAME 'twitterHandle'
+  DESC 'User Twitter handle'
+  EQUALITY caseIgnoreMatch
+  SUBSTR caseIgnoreSubstringsMatch
+  SYNTAX 1.3.6.1.4.1.1466.115.121.1.15
+  SINGLE-VALUE )
+olcAttributeTypes: ( 1.3.6.1.4.1.99999.1.2
+  NAME 'fediverseHandle'
+  DESC 'User Fediverse handle'
+  EQUALITY caseIgnoreMatch
+  SUBSTR caseIgnoreSubstringsMatch
+  SYNTAX 1.3.6.1.4.1.1466.115.121.1.15
+  SINGLE-VALUE )
+olcAttributeTypes: ( 1.3.6.1.4.1.99999.1.3
+  NAME 'pronouns'
+  DESC 'User pronouns'
+  EQUALITY caseIgnoreMatch
+  SUBSTR caseIgnoreSubstringsMatch
+  SYNTAX 1.3.6.1.4.1.1466.115.121.1.15
+  SINGLE-VALUE )
+olcAttributeTypes: ( 1.3.6.1.4.1.99999.1.100
+  NAME 'birthDate'
+  DESC 'User birthdate YYYYMMDD'
+  EQUALITY generalizedTimeMatch
+  SYNTAX 1.3.6.1.4.1.1466.115.121.1.24
+  SINGLE-VALUE )
+olcAttributeTypes: ( 1.3.6.1.4.1.99999.1.101
+  NAME 'headline'
+  DESC 'User headline'
+  EQUALITY caseIgnoreMatch
+  SYNTAX 1.3.6.1.4.1.1466.115.121.1.15
+  SINGLE-VALUE )
+olcAttributeTypes: ( 1.3.6.1.4.1.99999.1.102
+  NAME 'quota'
+  DESC 'User quota string'
+  EQUALITY caseIgnoreMatch
+  SUBSTR caseIgnoreSubstringsMatch
+  SYNTAX 1.3.6.1.4.1.1466.115.121.1.15
+  SINGLE-VALUE )
+olcObjectClasses: ( 1.3.6.1.4.1.99999.2.1
+  NAME 'chrimeraPerson'
+  DESC 'Auxiliary object class for custom fields'
+  SUP top
+  AUXILIARY
+  MAY ( twitterHandle $ fediverseHandle $ pronouns $ birthDate $ headline $ quota ) )

@@ -1,7 +1,4 @@
 #!/usr/bin/python3
-#part of chrimera project. 
-#proof of concept code of yetanoptherprojecttosavetheworld.org
-#written by bram diederik
 import os
 import discord
 from discord.ext import commands
@@ -103,7 +100,7 @@ def store_user_roles(member):
             cursor.execute("SELECT id FROM users WHERE discord_id=%s", (member.id,))
             user_row = cursor.fetchone()
             if not user_row:
-                print(f"⚠ User with Discord ID {member.id} not found in database. Ignoring role sync.")
+                print(f"⚠️ User with Discord ID {member.id} not found in database. Ignoring role sync.")
                 return  # Exit the function if user is not found.
             user_id = user_row['id']
 
@@ -263,7 +260,7 @@ def ensure_user_in_ldap(conn, member):
       db_email = get_email_from_db(member.id)
       if not db_email:
          db_email = f"{member.name}@example.com"
-      conn.add(user_dn, ['inetOrgPerson', 'organizationalPerson', 'person', 'top'], {
+      conn.add(user_dn, ['inetOrgPerson', 'organizationalPerson', 'chrimeraPerson','person', 'top'], {
             'cn': member.name,
             'sn': member.name,
             'givenName': db_user,
@@ -348,12 +345,53 @@ def update_user_groups(member):
     finally:
         conn.unbind()
 
+def set_quota(discord_id):
+    """
+    Dynamically sets LDAP quota based on the highest quota among all user's roles in MySQL.
+    """
+    db_conn = get_database_connection()
+    if not db_conn:
+        return 0
+
+    try:
+        with db_conn.cursor() as cursor:
+            # Fetch the highest quota for the user's roles
+            cursor.execute("""
+                SELECT MAX(r.quota) AS max_quota
+                FROM roles r
+                JOIN user_roles ur ON r.id = ur.role_id
+                JOIN users u ON u.id = ur.user_id
+                WHERE u.discord_id = %s
+            """, (discord_id,))
+            row = cursor.fetchone()
+            quota_mb = row['max_quota'] if row and row['max_quota'] is not None else 0
+    finally:
+        db_conn.close()
+
+    # Update LDAP
+    conn = get_ldap_connection()
+    if conn:
+        user_dn = f"uid={discord_id},{USER_OU_DN}"
+        try:
+            quota_str = f"{quota_mb}MB"
+            conn.modify(user_dn, {'quota': [(MODIFY_REPLACE, [quota_str])]})
+            print(f"✅ LDAP quota updated for {discord_id} to {quota_mb}MB")
+        except Exception as e:
+            print(f"❌ Failed to set LDAP quota for {discord_id}: {e}")
+        finally:
+            conn.unbind()
+
+    return quota_mb
+
+
+
 # ---------------- Startup Sync ----------------
 async def sync_roles_at_startup():
     """Iterates through all members and syncs their roles with LDAP and MySQL."""
     print("[DEBUG] Syncing all roles at startup...")
     for member in my_guild.members:
         update_user_groups(member)
+        set_quota(member.id)
 
 async def check_for_role_renames_on_startup():
     """Checks for role renames and updates them in MySQL and LDAP."""
@@ -369,7 +407,7 @@ async def check_for_role_renames_on_startup():
             if role_id in discord_roles:
                 discord_name = discord_roles[role_id]
                 if db_name != discord_name:
-                    print(f"⚠ Found role rename on startup: '{db_name}' -> '{discord_name}'")
+                    print(f"⚠️ Found role rename on startup: '{db_name}' -> '{discord_name}'")
                     update_role_name_in_db(role_id, discord_name)
                     rename_ldap_group(conn, db_name, discord_name)
                     # Trigger PHP hook for the rename event
@@ -428,6 +466,7 @@ async def on_member_update(before, after):
     """Handles role synchronization when a member's roles change."""
     if before.roles != after.roles:
         update_user_groups(after)
+    set_quota(after.id)
 
 # ---------------- Main ----------------
 if __name__ == "__main__":
