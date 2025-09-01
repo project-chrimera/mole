@@ -252,6 +252,51 @@ def update_user_groups(member):
     finally:
         conn.unbind()
 
+
+# ---------------- MySQL Helpers ----------------
+def set_quota(discord_id):
+    """
+    Dynamically sets LDAP quota based on the highest quota among all user's roles in MySQL.
+    """
+    db_conn = get_database_connection()
+    if not db_conn:
+        return 0
+    try:
+        with db_conn.cursor() as cursor:
+            # Fetch the highest quota for the user's roles
+            cursor.execute("""
+                SELECT MAX(r.quota) AS max_quota
+                FROM roles r
+                JOIN user_roles ur ON r.id = ur.role_id
+                JOIN users u ON u.id = ur.user_id
+                WHERE u.discord_id = %s
+            """, (discord_id,))
+            row = cursor.fetchone()
+            quota_mb = row['max_quota'] if row and row['max_quota'] is not None else 0
+    finally:
+        db_conn.close()
+
+    # Get the username from the database to use as the LDAP uid
+    db_username = get_username_from_db(discord_id)
+    if not db_username:
+        print(f"⚠ User with Discord ID {discord_id} not found in database. Cannot set quota.")
+        return quota_mb
+
+    # Update LDAP
+    conn = get_ldap_connection()
+    if conn:
+        user_dn = f"uid={db_username},{USER_OU_DN}"
+        try:
+            quota_str = f"{quota_mb}MB"
+            conn.modify(user_dn, {'quota': [(MODIFY_REPLACE, [quota_str])]})
+            print(f"✅ LDAP quota updated for {db_username} to {quota_mb}MB")
+        except Exception as e:
+            print(f"❌ Failed to set LDAP quota for {db_username}: {e}")
+        finally:
+            conn.unbind()
+    return quota_mb
+
+
 # ---------------- Discord Events ----------------
 @bot.event
 async def on_ready():
@@ -274,15 +319,18 @@ async def on_ready():
     # Sync roles on startup
     for member in my_guild.members:
         update_user_groups(member)
+        set_quota(member.id)
 
 @bot.event
 async def on_member_update(before, after):
     if before.roles != after.roles:
         update_user_groups(after)
+        set_quota(after.id)
 
 @bot.event
 async def on_member_join(member):
     update_user_groups(member)
+    set_quota(member.id)
 
 @bot.event
 async def on_guild_role_update(before, after):
