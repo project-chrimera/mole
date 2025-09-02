@@ -1,3 +1,4 @@
+daft@heppy:~/projects/chrimera/mole$ cat chimera.ldif 
 dn: cn=chrimera,cn=schema,cn=config
 objectClass: olcSchemaConfig
 cn: chrimera
