@@ -38,6 +38,8 @@ POSTFIX_ROOT_ROLE_ID   = int(os.getenv('POSTFIX_ROOT_ROLE_ID', '1412179886277263
 
 ROLE_HOOK = os.getenv('ROLE_HOOK')
 
+UNKNOWN_ROLE_ID = int(os.getenv('UNKNOWN_ROLE_ID', '0'))
+
 # ---------------- Discord Bot ----------------
 intents = discord.Intents.all()
 bot = commands.Bot(command_prefix='!', intents=intents)
@@ -454,6 +456,18 @@ async def on_member_update(before, after):
 
 @bot.event
 async def on_member_join(member):
+    username = get_username_from_db(member.id)
+
+    # If the user is NOT in the DB → assign the fallback role
+    if not username and UNKNOWN_ROLE_ID:
+        role = member.guild.get_role(UNKNOWN_ROLE_ID)
+        if role:
+            await member.add_roles(role, reason="Auto-assigned unknown user role")
+            print(f"✅ Assigned fallback role to {member.name} ({member.id})")
+        else:
+            print(f"❌ Unknown role ID {UNKNOWN_ROLE_ID} not found in guild!")
+
+    # Continue with normal provisioning
     update_user_groups(member)
     set_quota(member.id)
 
