@@ -217,7 +217,12 @@ def ensure_nobody_user(conn):
 
 def ensure_user_in_ldap(conn, member):
     """Ensure a Discord member exists in LDAP, raise if fails."""
-    db_username = get_username_from_db(member.id) or member.name
+    db_username = get_username_from_db(member.id)
+    if not db_username:
+        print(f"⚠ User {member.name} ({member.id}) not in DB, skipping LDAP.")
+        return False  # Skip LDAP provisioning
+
+    """Ensure a Discord member exists in LDAP, raise if fails."""
     db_email = get_email_from_db(member.id) or f"{db_username}@example.com"
     user_dn = f"uid={db_username},{USER_OU_DN}"
 
@@ -459,7 +464,7 @@ async def on_member_join(member):
     username = get_username_from_db(member.id)
 
     # If the user is NOT in the DB → assign the fallback role
-    if not username and UNKNOWN_ROLE_ID:
+    if (not username or len(member.roles) <= 1) and UNKNOWN_ROLE_ID:
         role = member.guild.get_role(UNKNOWN_ROLE_ID)
         if role:
             await member.add_roles(role, reason="Auto-assigned unknown user role")
